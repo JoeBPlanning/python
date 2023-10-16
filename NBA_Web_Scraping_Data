@@ -1,0 +1,64 @@
+import os
+from urllib.request import urlopen, Request
+from bs4 import BeautifulSoup
+import json
+import csv
+import ssl
+
+# Disable SSL certificate verification
+ssl._create_default_https_context = ssl._create_unverified_context
+
+print('Begin script')
+
+# Function to fetch data from a given URL
+def fetch_data(url):
+    request_page = urlopen(url)
+    page_html = request_page.read()
+    request_page.close()
+    html_soup = BeautifulSoup(page_html, 'html.parser')
+    nba_games = html_soup.find_all('a', class_='Anchor_anchor__cSc3P')
+    game_info = []
+    for element in nba_games:
+        # Extract game information
+        game_id = element.get('data-content-id')
+        data_content = element.get('data-content')
+        away_team = data_content[:3]
+        home_team = data_content[-3:]
+        # print('game_id: ' + game_id + ' | data_content: ' + data_content)
+        print(element)
+
+        game_info.append({
+            'Game_ID': game_id,
+            'Away_Team': away_team,
+            'Home_Team': home_team
+        })
+    return game_info
+
+# Base URL pattern
+base_url = "https://www.nba.com/schedule?cal={}&pd=false&region=1&season=Regular%20Season"
+
+# Specify the output directory and create if it doesn't exist
+output_directory = os.path.join(os.path.expanduser("~"), "Desktop", "NBA_Data")
+if not os.path.exists(output_directory):
+    os.makedirs(output_directory)
+
+# Specify the output CSV file
+filename = os.path.join(output_directory, 'nba_game_info_2023.csv')
+
+# Initialize game_info to hold all game information
+game_info = []
+
+# Loop through each week and fetch data
+for week_num in range(1, 27):  # Weeks range from 1 to 26
+    url = base_url.format(week_num)
+    game_info += fetch_data(url)
+
+# Write data to the CSV file
+with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+    fieldnames = ['Game_ID', 'Away_Team', 'Home_Team']
+    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+    writer.writeheader()
+    for game in game_info:
+        writer.writerow({'Game_ID': game['Game_ID'], 'Away_Team': game['Away_Team'], 'Home_Team': game['Home_Team']})
+
+print("Data saved to", filename)
